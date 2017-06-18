@@ -66,6 +66,52 @@ class EchoBot(sleekxmpp.ClientXMPP):
         self.send_presence()
         self.get_roster()
         
+        #res = self["xep_0313"].get_configuration_commands("mario_test@jabber.n-ten.de")
+        #print( res )
+        
+        print("Start MAM")
+        ret = self["xep_0313"].get_preferences()
+        print( "Archiving default is: ", ret["mam_prefs"]["default"] )
+        #self["xep_0313"].set_preferences(default="always", block=True)
+        
+        #answer = self["xep_0313"].retrieve(callback=self.__handle_mam_result)
+        answer = self["xep_0313"].retrieve(callback=None)#, 
+                                           #start="2017-05-25T21:07:34+00:00",
+                                           #end="2017-05-25T21:07:34+00:00",
+                                           ##start=None,
+                                           ##end=None,
+                                           ##with_jid="mario@jabber.n-ten.de",  # FIXME
+                                           #number_of_queried_elements=1,
+                                           #collect_all=True)
+        
+        ## if no callback is used
+        self.__handle_mam_result(answer)
+        
+        print("End MAM")
+        
+        
+    def __handle_mam_result(self, response):
+        print( "Answer for query {}".format(response['mam_answer']['queryid']) )
+        print( "  - answer is: {}".format("complete" if response["mam_answer"]["complete"] else "incomplete") )
+        print( "  - last message is: {}".format(response["mam_answer"]["rsm"]["last"]) )
+        
+        result = response['mam_answer']['results']
+        
+        for x in result:
+            msg = x["mam_result"]["forwarded"]["message"]
+            delay = x["mam_result"]["forwarded"]["delay"]
+            if ( msg["body"] ):
+                print("==========")
+                print( "From:", msg["from"] )
+                print( "Time:", delay["stamp"] )
+                print( "--------" )
+                print( msg["body"] )
+                print( "--------" )
+                print()
+                #print( msg )
+                #print()
+                #print()
+
 
     def message(self, msg):
         """
@@ -81,6 +127,9 @@ class EchoBot(sleekxmpp.ClientXMPP):
         """
         if msg['type'] in ('chat', 'normal'):
             msg.reply("Thanks for sending\n%(body)s" % msg).send()
+            
+        else:
+            print( "other message:", msg )
 
 
 
@@ -125,6 +174,9 @@ if __name__ == '__main__':
     xmpp.register_plugin('xep_0004') # Data Forms
     xmpp.register_plugin('xep_0060') # PubSub
     xmpp.register_plugin('xep_0199') # XMPP Ping
+    xmpp.register_plugin("xep_0313") # MAM
+    xmpp.register_plugin("xep_0004") # Data Form (required by xep_0313)
+
 
     # If you are connecting to Facebook and wish to use the
     # X-FACEBOOK-PLATFORM authentication mechanism, you will need
@@ -156,6 +208,7 @@ if __name__ == '__main__':
         # if xmpp.connect(('talk.google.com', 5222)):
         #     ...
         xmpp.process(block=True)
+        #xmpp.process(block=False)
         print("Done")
     else:
         print("Unable to connect.")
