@@ -11,9 +11,12 @@
 """
 
 import sys
+import os
 import logging
 import getpass
 from optparse import OptionParser
+import time
+import json
 
 import sleekxmpp
 
@@ -28,15 +31,69 @@ else:
     raw_input = input
 
 
-class EchoBot(sleekxmpp.ClientXMPP):
 
-    """
-    A simple SleekXMPP bot that will echo messages it
-    receives, along with a short thank you message.
-    """
+## NOTE: Deceide whether we want to handle a single account or all accounts here...
+class Config:
+    def __init__(self, path):
+        self.path = path
+        
+        self._accounts = None
+        self._data = {}
+        
+        self._load()
+        
+        
+    def _load(self):
+        with open(self.path + "/accounts.json", "r") as f:
+            self._accounts = json.load(f)
+            
+        ## data
+        try:
+            with open(self.path + "/" + self.get_jid() + ".json", "r") as f:
+                self._data = json.load(f)
+        except FileNotFoundError as e:
+            print( "No data stored for: '{}'".format(self.get_jid()) )
+            
+        #print("Last message: {}".format(self.get_last_message()))
+        
+        
+    ## accounts are read-only (at the moment..?)
+    #def store(self):
+        #with open(self.path + "/accounts.json", "w") as f:
+            #json.dump(self._accounts, f, sort_keys=True, indent=4)
 
-    def __init__(self, jid, password):
+    def store_data(self):
+        #print("Store: {}".format(json.dumps(self._data, sort_keys=True, indent=4)))
+        with open(self.path + "/" + self.get_jid() + ".json", "w") as f:
+            json.dump(self._data, f, sort_keys=True, indent=4)
+
+    def get_jid(self):
+        return self._accounts["Accounts"][0]["jid"]
+    
+    def get_password(self):
+        return self._accounts["Accounts"][0]["password"]
+    
+    def set_last_message(self, id):
+        if id:
+            self._data["last-message"] = id
+            self.store_data()
+        
+    def get_last_message(self):
+        return self._data.get("last-message")
+    
+    
+    
+
+class HistoryAlert(sleekxmpp.ClientXMPP):
+
+    def __init__(self, jid, password, config):
         sleekxmpp.ClientXMPP.__init__(self, jid, password)
+
+        self._jid = jid
+        self._config = config
+
+        self.id_of_last_message = config.get_last_message()
+
 
         # The session_start event will be triggered when
         # the bot establishes its connection with the server
@@ -66,49 +123,70 @@ class EchoBot(sleekxmpp.ClientXMPP):
         self.send_presence()
         self.get_roster()
 
-
-        print("Start MAM")
+        ## TODO optional.. maybe just check if preference is set to "none"
         ret = self["xep_0313"].get_preferences()
         print("Archiving default is: ", ret["mam_prefs"]["default"])
         # self["xep_0313"].set_preferences(default="always", block=True)
+        
+        self.get_history()
+
+
+    def get_history(self, quiet=False):
+        #print("Start MAM")
 
         # async non-blocking
         # answer = self["xep_0313"].retrieve(block=False, callback=self.__handle_mam_result)
 
+        if not quiet:
+            print("checking messages...")
+            
         # blocking
         answer = self["xep_0313"].retrieve(block=True, callback=None,
-                                           # start="2017-06-05T12:00:00+00:00",
-                                           # end="2017-06-05T23:59:59+00:00",
-                                           number_of_queried_elements=1,
+                                           continue_after=self.id_of_last_message,
                                            collect_all=True)
 
         # If no callback is used, the handler function is called here to
         # display the results.
-        self.__handle_mam_result(answer)
+        if not quiet:
+            self.__handle_mam_result_verbose(answer)
+        else:
+            self.__handle_mam_result(answer)
 
-        # Note that a blocking call will finish before this,
-        #  an async call will finish after this.
-        print("End MAM")
+        #print("End MAM")
 
 
-    def __handle_mam_result(self, response):
-        print("Answer for query {}".format(response['mam_answer']['queryid']))
-        print("  - answer is: {}".format("complete" if response["mam_answer"]["complete"] else "incomplete"))
-        print("  - last message is: {}".format(response["mam_answer"]["rsm"]["last"]))
-        
+    def __handle_mam_result_verbose(self, response):
+        print("--> {}".format("complete." if response["mam_answer"]["complete"] else "incomplete"))
+
         result = response['mam_answer']['results']
 
+        if len(result) == 0:
+            print("No new messages.")
+            print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
+        else:
+            self.__handle_mam_result(response)
+            
+        
+        
+    def __handle_mam_result(self, response):
+        id_tmp = response["mam_answer"]["rsm"]["last"]
+        if id_tmp:
+            self.id_of_last_message = id_tmp
+            self._config.set_last_message(self.id_of_last_message)
+        
+        result = response['mam_answer']['results']
+            
         for x in result:
             msg = x["mam_result"]["forwarded"]["message"]
             delay = x["mam_result"]["forwarded"]["delay"]
             if msg["body"]:
-                print("==========")
-                print("From:", msg["from"])
+                print("--------")
                 print("Time:", delay["stamp"])
-                print("--------")
-                print(msg["body"])
-                print("--------")
+                print("From:", msg["from"])
                 print()
+
+        if len(result) > 0:
+            print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
 
 
     def message(self, msg):
@@ -123,8 +201,12 @@ class EchoBot(sleekxmpp.ClientXMPP):
                    for stanza objects and the Message stanza to see
                    how it may be used.
         """
+        
+        #print("Something happened oO: {}".format(msg['type']))
+        
         if msg['type'] in ('chat', 'normal'):
-            msg.reply("Thanks for sending\n%(body)s" % msg).send()
+            #print("/// New message arrived, checking history:")
+            self.get_history(quiet=True)
 
 
 if __name__ == '__main__':
@@ -143,10 +225,10 @@ if __name__ == '__main__':
                     const=5, default=logging.INFO)
 
     # JID and password options.
-    optp.add_option("-j", "--jid", dest="jid",
-                    help="JID to use")
-    optp.add_option("-p", "--password", dest="password",
-                    help="password to use")
+    #optp.add_option("-j", "--jid", dest="jid",
+                    #help="JID to use")
+    #optp.add_option("-p", "--password", dest="password",
+                    #help="password to use")
 
     opts, args = optp.parse_args()
 
@@ -154,38 +236,17 @@ if __name__ == '__main__':
     logging.basicConfig(level=opts.loglevel,
                         format='%(levelname)-8s %(message)s')
 
-    if opts.jid is None:
-        opts.jid = raw_input("Username: ")
-    if opts.password is None:
-        opts.password = getpass.getpass("Password: ")
 
-    # Setup the EchoBot and register plugins. Note that while plugins may
+    ## Load config
+    config = Config( os.path.expanduser("~/.config/xmpp-history-alert") )
+    
+    # Setup the Client and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
     # not matter.
-    xmpp = EchoBot(opts.jid, opts.password)
+    xmpp = HistoryAlert(config.get_jid(), config.get_password(), config)
     xmpp.register_plugin('xep_0199')  # XMPP Ping
     xmpp.register_plugin("xep_0313")  # MAM
     xmpp.register_plugin("xep_0004")  # Data Form (required by xep_0313)
-
-    # If you are connecting to Facebook and wish to use the
-    # X-FACEBOOK-PLATFORM authentication mechanism, you will need
-    # your API key and an access token. Then you'll set:
-    # xmpp.credentials['api_key'] = 'THE_API_KEY'
-    # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
-
-    # If you are connecting to MSN, then you will need an
-    # access token, and it does not matter what JID you
-    # specify other than that the domain is 'messenger.live.com',
-    # so '_@messenger.live.com' will work. You can specify
-    # the access token as so:
-    # xmpp.credentials['access_token'] = 'THE_ACCESS_TOKEN'
-
-    # If you are working with an OpenFire server, you may need
-    # to adjust the SSL version used:
-    # xmpp.ssl_version = ssl.PROTOCOL_SSLv3
-
-    # If you want to verify the SSL certificates offered by a server:
-    # xmpp.ca_certs = "path/to/ca/cert"
 
     # Connect to the XMPP server and start processing XMPP stanzas.
     if xmpp.connect():
