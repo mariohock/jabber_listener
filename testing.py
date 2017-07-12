@@ -179,10 +179,12 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
         for x in result:
             msg = x["mam_result"]["forwarded"]["message"]
             delay = x["mam_result"]["forwarded"]["delay"]
-            if msg["body"]:
+            if msg["body"] or msg.xml.find('{eu.siacs.conversations.axolotl}encrypted'):
                 print("--------")
-                print("Time:", delay["stamp"])
+                print("Time:", delay["stamp"].astimezone(tz=None).strftime("%a, %Y-%m-%d %H:%M:%S"))
                 print("From:", msg["from"])
+                print("To:  ", msg["to"])
+                #print(msg)  ## XXX
                 print()
 
         if len(result) > 0:
