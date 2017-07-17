@@ -129,7 +129,18 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
         # self["xep_0313"].set_preferences(default="always", block=True)
         
         self.get_history()
+        
+        ## program regular callback, just in case we missed a message somehow..
+        self["xep_0313"].xmpp.schedule('Re-check Timer',
+                    300,
+                    self._timer_callback,
+                    repeat=True)
 
+
+    ## check history in regular intervals; just in case..
+    def _timer_callback(self):
+        self.get_history(quiet=True)
+            
 
     def get_history(self, quiet=False):
         #print("Start MAM")
