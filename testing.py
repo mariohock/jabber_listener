@@ -156,6 +156,10 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
                                            continue_after=self.id_of_last_message,
                                            collect_all=True)
 
+
+        ## TODO set a timeout and try to reconnect if timeout reached..
+        #   see ping.py  -->  self.xmpp.reconnect()
+
         # If no callback is used, the handler function is called here to
         # display the results.
         if not quiet:
@@ -163,6 +167,7 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
         else:
             self.__handle_mam_result(answer)
 
+        print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
         #print("End MAM")
 
 
@@ -173,7 +178,7 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
 
         if len(result) == 0:
             print("No new messages.")
-            print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
+            #print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
         else:
             self.__handle_mam_result(response)
             
@@ -198,8 +203,8 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
                 #print(msg)  ## XXX
                 print()
 
-        if len(result) > 0:
-            print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
+        #if len(result) > 0:
+            #print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
 
 
     def message(self, msg):
@@ -216,6 +221,10 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
         """
         
         #print("Something happened oO: {}".format(msg['type']))
+        
+        
+        ## TESTING
+        print("/// Incoming message, type: " + msg['type'])
         
         if msg['type'] in ('chat', 'normal'):
             #print("/// New message arrived, checking history:")
