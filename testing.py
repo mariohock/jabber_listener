@@ -130,12 +130,16 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
         
         self.get_history()
         
-        ## program regular callback, just in case we missed a message somehow..
-        self["xep_0313"].xmpp.schedule('Re-check Timer',
-                    300,
-                    self._timer_callback,
-                    repeat=True)
-
+        try:
+            ## program regular callback, just in case we missed a message somehow..
+            self["xep_0313"].xmpp.schedule('Re-check Timer',
+                        300,
+                        self._timer_callback,
+                        repeat=True)
+        except ValueError:
+            print("/// Timer already active.")
+            
+        #self.xmpp.scheduler.remove('Ping keepalive')
 
     ## check history in regular intervals; just in case..
     def _timer_callback(self):
@@ -152,24 +156,30 @@ class HistoryAlert(sleekxmpp.ClientXMPP):
             print("checking messages...")
             
         # blocking
-        answer = self["xep_0313"].retrieve(block=True, callback=None,
-                                           continue_after=self.id_of_last_message,
-                                           collect_all=True)
+        try:
+            answer = self["xep_0313"].retrieve(block=True, timeout=10, callback=None,
+                                            continue_after=self.id_of_last_message,
+                                            collect_all=True)
 
 
-        ## TODO set a timeout and try to reconnect if timeout reached..
-        #   see ping.py  -->  self.xmpp.reconnect()
+            ## TODO set a timeout and try to reconnect if timeout reached..
+            #   see ping.py  -->  self.xmpp.reconnect()
 
-        # If no callback is used, the handler function is called here to
-        # display the results.
-        if not quiet:
-            self.__handle_mam_result_verbose(answer)
-        else:
-            self.__handle_mam_result(answer)
+            # If no callback is used, the handler function is called here to
+            # display the results.
+            if not quiet:
+                self.__handle_mam_result_verbose(answer)
+            else:
+                self.__handle_mam_result(answer)
 
-        print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
-        #print("End MAM")
-
+            print( "==== {} ====".format(time.strftime("%a, %Y-%m-%d %H:%M:%S")) )
+            #print("End MAM")
+        except sleekxmpp.exceptions.IqTimeout:
+            print("/// Timeout while reading history!!")
+            print("--> Trying to reconnect..")
+            self.reconnect()
+            
+            
 
     def __handle_mam_result_verbose(self, response):
         print("--> {}".format("complete." if response["mam_answer"]["complete"] else "incomplete"))
