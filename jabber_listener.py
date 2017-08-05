@@ -275,7 +275,7 @@ if __name__ == '__main__':
 
 
     ## Load config
-    config = Config( os.path.expanduser("~/.config/xmpp-history-alert") )
+    config = Config( os.path.expanduser("~/.config/jabber_listener") )
     
     # Setup the Client and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
