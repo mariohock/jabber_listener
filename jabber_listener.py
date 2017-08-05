@@ -2,12 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """
-    SleekXMPP: The Sleek XMPP Library
-    Copyright (C) 2010  Nathanael C. Fritz,
-                  2017  Mario Hock
-    This file is part of SleekXMPP.
+    Copyright (c) 2017,
 
-    See the file LICENSE for copying permission.
+    This code is provided under the BSD 2-Clause License.
+    Please refer to the LICENSE.txt file for further information.
+
+    Author: Mario Hock
+
+    This code partially consists of code by:
+        SleekXMPP: The Sleek XMPP Library
+        Copyright (C) 2010  Nathanael C. Fritz,
+        See the file SleekXMPP-License.txt for copying permission.
 """
 
 import sys
@@ -84,7 +89,7 @@ class Config:
     
     
 
-class HistoryAlert(sleekxmpp.ClientXMPP):
+class Listen_and_MAM_Client(sleekxmpp.ClientXMPP):
 
     def __init__(self, jid, password, config):
         sleekxmpp.ClientXMPP.__init__(self, jid, password)
@@ -275,7 +280,7 @@ if __name__ == '__main__':
     # Setup the Client and register plugins. Note that while plugins may
     # have interdependencies, the order in which you register them does
     # not matter.
-    xmpp = HistoryAlert(config.get_jid(), config.get_password(), config)
+    xmpp = Listen_and_MAM_Client(config.get_jid(), config.get_password(), config)
     xmpp.register_plugin('xep_0199')  # XMPP Ping
     xmpp.register_plugin("xep_0313")  # MAM
     xmpp.register_plugin("xep_0004")  # Data Form (required by xep_0313)
