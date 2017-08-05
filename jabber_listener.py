@@ -49,9 +49,13 @@ class Config:
         
         
     def _load(self):
-        with open(self.path + "/accounts.json", "r") as f:
-            self._accounts = json.load(f)
-            
+        try:
+            with open(self.path + "/accounts.json", "r") as f:
+                self._accounts = json.load(f)
+        except FileNotFoundError:
+            print("ERROR: No config-file found! \nPlease copy 'SAMPLE-accounts.json' to '{}' and fill in your account data.".format(self.path + "/accounts.json"))
+            sys.exit(1)        
+        
         ## data
         try:
             with open(self.path + "/" + self.get_jid() + ".json", "r") as f:

@@ -1,0 +1,10 @@
+{
+	"Accounts" :
+	[
+		{
+			"jid" : "NAME@JABBER.SERVER.net",
+			"password" : "PASSWORD"
+		}
+	]
+}
+
